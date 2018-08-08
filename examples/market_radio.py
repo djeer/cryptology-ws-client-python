@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 
-SERVER = os.getenv('SERVER', 'ws://127.0.0.1:8080')
+SERVER = os.getenv('SERVER', 'ws://marketdata.cryptology.com')
 NAME = Path(__file__).stem
 
 logging.basicConfig(level=logging.INFO)

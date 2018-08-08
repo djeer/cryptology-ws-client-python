@@ -42,7 +42,7 @@ And see example.
     from cryptology import ClientWriterStub, run_client, exceptions
 
 
-    SERVER = os.getenv('SERVER', 'ws://127.0.0.1:8080')
+    SERVER = os.getenv('SERVER', 'wss://api.cryptology.com')
     Order = namedtuple('Order', ('order_id', 'amount', 'price', 'client_order_id'))
 
 
