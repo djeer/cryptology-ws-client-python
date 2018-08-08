@@ -4,7 +4,7 @@ Welcome to cryptology-client-python v1.0
 
 This is an official Python client library for the Cryptology exchange WebSocket API.
 
-By using this Cryptology Python client you confirm that you have read and accept [License Agreement](https://github.com/CryptologyExchange/cryptology-client-python/blob/master/LICENSE)
+By using this Cryptology Python client you confirm that you have read and accept `License Agreement: <https://github.com/CryptologyExchange/cryptology-ws-client-python/blob/master/LICENSE>`_
 
 Features
 --------
@@ -15,11 +15,11 @@ Features
 
 Quick Start
 -----------
-Receive your own API public/secret keys pair.
+Receive your own API access key and secret key.
 
 .. code:: bash
 
-    pip install cryptology-client-python
+    pip install cryptology-ws-client-python
 
 Run tests.
 
@@ -31,15 +31,16 @@ And see example.
 
 .. code:: python
 
+    from collections import namedtuple
+    from datetime import datetime
+    from decimal import Decimal
+    from typing import Iterable
     import asyncio
     import itertools
     import os
 
-    from collections import namedtuple
     from cryptology import ClientWriterStub, run_client, exceptions
-    from datetime import datetime
-    from decimal import Decimal
-    from typing import Iterable
+
 
     SERVER = os.getenv('SERVER', 'ws://127.0.0.1:8080')
     Order = namedtuple('Order', ('order_id', 'amount', 'price', 'client_order_id'))
