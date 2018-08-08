@@ -1,0 +1,15 @@
+.idea/
+.mypy_cache/
+build/
+cryptology_client_python.egg-info/
+dist/
+venv/
+.venv/
+html/
+latex/
+site/.terraform
+site/terraform.tfstate
+site/terraform.tfstate.backup
+__pycache__
+.pytest_cache
+.DS_Store
