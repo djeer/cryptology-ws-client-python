@@ -6,9 +6,10 @@ import functools
 import inspect
 import logging
 import warnings
+import xdrlib
 
 from datetime import datetime
-from typing import Any, AsyncIterator, Awaitable, Callable, ClassVar, Optional, Tuple, Type, cast
+from typing import Any, AsyncIterator, Awaitable, Callable, ClassVar, Optional, Tuple, Type, cast, Dict
 
 from . import common, exceptions, parallel
 from .market_data_client import receive_msg
@@ -28,7 +29,7 @@ class ClientWriterStub:
 
 
 ClientReadCallback = Callable[[ClientWriterStub, datetime, dict], Awaitable[None]]
-ClientWriter = Callable[[ClientWriterStub], Awaitable[None]]
+ClientWriter = Callable[[ClientWriterStub, Optional[Dict]], Awaitable[None]]
 ClientThrottlingCallback = Callable[[int, int], Awaitable[bool]]
 
 
@@ -48,17 +49,25 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
         self.send_fut = None
         self.throttle = 0
 
-    async def authenticate(self, last_seen_order: int) -> Tuple[int, int]:
+    async def authenticate(self, last_seen_order: int, get_balances: bool = False,
+                           get_order_books: bool = False) -> Tuple[int, int, Dict]:
+        state_request_data = {}
+        if get_balances:
+            state_request_data['get_balances'] = get_balances
+        if get_order_books:
+            state_request_data['get_order_books'] = get_order_books
+
         await self.send_json({'access_key': self.access_key,
                               'secret_key': self.secret_key,
                               'last_seen_order': last_seen_order,
-                              'version': self.VERSION
-                              })
+                              'version': self.VERSION,
+                              **state_request_data})
         data = await receive_msg(self)
         last_seen_sequence = data['last_seen_sequence']
         server_version = data['version']
+        state = data.get('state')
         self.sequence_id = last_seen_sequence
-        return last_seen_sequence, server_version
+        return last_seen_sequence, server_version, state
 
     async def send_signed(self, *args, **kwargs) -> None:
         warnings.warn("The 'send_signed' method is deprecated, use 'send_signed_message' instead", DeprecationWarning)
@@ -116,6 +125,7 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
                 logger.error('unsupported message type')
                 raise exceptions.UnsupportedMessageType()
 
+
 @functools.lru_cache(typed=True)
 def bind_response_class(access_key: str, secret_key: str) -> Type[BaseProtocolClient]:
     return cast(Type[BaseProtocolClient],
@@ -133,11 +143,13 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
                      read_callback: ClientReadCallback, writer: ClientWriter,
                      throttling_callback: ClientThrottlingCallback = None,
                      last_seen_order: int = 0,
-                     loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+                     loop: Optional[asyncio.AbstractEventLoop] = None,
+                     get_balances: bool = False,
+                     get_order_books: bool = False) -> None:
     async with CryptologyClientSession(access_key, secret_key, loop=loop) as session:
         async with session.ws_connect(ws_addr, autoclose=True, autoping=True, receive_timeout=10, heartbeat=4) as ws:
             logger.info('connected to the server %s', ws_addr)
-            sequence_id, server_version = await ws.authenticate(last_seen_order)
+            sequence_id, server_version, state = await ws.authenticate(last_seen_order, get_balances, get_order_books)
             logger.info('Authentication succeeded, server version %i, sequence id = %i', server_version, sequence_id)
             assert server_version >= 6, 'Server version less than 6 is not supported'
 
@@ -148,5 +160,5 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
 
             await parallel.run_parallel((
                 reader_loop(),
-                writer(ws)
+                writer(ws, state)
             ), loop=loop)

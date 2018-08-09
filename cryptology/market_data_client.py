@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Callable, Awaitable
 
-__all__ = ('run',)
+__all__ = ('run', 'receive_msg')
 
 logger = logging.getLogger(__name__)
 
