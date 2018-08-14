@@ -28,7 +28,7 @@ class ClientWriterStub:
         pass
 
 
-ClientReadCallback = Callable[[ClientWriterStub, datetime, dict], Awaitable[None]]
+ClientReadCallback = Callable[[ClientWriterStub, datetime, int, dict], Awaitable[None]]
 ClientWriter = Callable[[ClientWriterStub, Optional[Dict]], Awaitable[None]]
 ClientThrottlingCallback = Callable[[int, int], Awaitable[bool]]
 
@@ -49,7 +49,7 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
         self.send_fut = None
         self.throttle = 0
 
-    async def authenticate(self, last_seen_order: int, get_balances: bool = False,
+    async def authenticate(self, last_seen_message_id: int, get_balances: bool = False,
                            get_order_books: bool = False) -> Tuple[int, int, Dict]:
         state_request_data = {}
         if get_balances:
@@ -59,7 +59,7 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
 
         await self.send_json({'access_key': self.access_key,
                               'secret_key': self.secret_key,
-                              'last_seen_order': last_seen_order,
+                              'last_seen_message_id': last_seen_message_id,
                               'version': self.VERSION,
                               **state_request_data})
         data = await receive_msg(self)
@@ -106,7 +106,7 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
             elif message_type is common.ServerMessageType.MESSAGE:
                 ts = data['timestamp']
                 logger.debug('outbox message: %s', data['data'])
-                yield datetime.utcfromtimestamp(ts), data['data']
+                yield datetime.utcfromtimestamp(ts), data['message_id'], data['data']
             elif message_type is common.ServerMessageType.ERROR:
                 error_type = common.ServerErrorType[data['error_type']]
                 message = data['error_message']
@@ -142,21 +142,23 @@ class CryptologyClientSession(aiohttp.ClientSession):
 async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
                      read_callback: ClientReadCallback, writer: ClientWriter,
                      throttling_callback: ClientThrottlingCallback = None,
-                     last_seen_order: int = 0,
+                     last_seen_message_id: int = 0,
                      loop: Optional[asyncio.AbstractEventLoop] = None,
                      get_balances: bool = False,
                      get_order_books: bool = False) -> None:
     async with CryptologyClientSession(access_key, secret_key, loop=loop) as session:
         async with session.ws_connect(ws_addr, autoclose=True, autoping=True, receive_timeout=10, heartbeat=4) as ws:
             logger.info('connected to the server %s', ws_addr)
-            sequence_id, server_version, state = await ws.authenticate(last_seen_order, get_balances, get_order_books)
+            sequence_id, server_version, state = await ws.authenticate(last_seen_message_id,
+                                                                       get_balances,
+                                                                       get_order_books)
             logger.info('Authentication succeeded, server version %i, sequence id = %i', server_version, sequence_id)
             assert server_version >= 6, 'Server version less than 6 is not supported'
 
             async def reader_loop() -> None:
-                async for ts, msg in ws.receive_iter(throttling_callback):
-                    logger.debug('%s new msg from server @%i: %s', ts, msg)
-                    asyncio.ensure_future(read_callback(ws, ts, msg))
+                async for ts, message_id, msg in ws.receive_iter(throttling_callback):
+                    logger.debug('%s new msg from server @%i: %s', ts, message_id, msg)
+                    asyncio.ensure_future(read_callback(ws, ts, message_id, msg))
 
             await parallel.run_parallel((
                 reader_loop(),

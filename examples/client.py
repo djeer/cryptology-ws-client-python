@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Iterable
 
-SERVER = os.getenv('SERVER', 'wss://api.cryptology.com')
+SERVER = os.getenv('SERVER', 'ws://127.0.0.1:8080')
 Order = namedtuple('Order', ('order_id', 'amount', 'price', 'client_order_id'))
 
 
@@ -38,7 +38,7 @@ async def main():
             })
             await asyncio.sleep(1)
 
-    async def read_callback(ws: ClientWriterStub, ts: datetime, payload: dict) -> None:
+    async def read_callback(ws: ClientWriterStub, ts: datetime, message_id: int, payload: dict) -> None:
         if payload['@type'] == 'BuyOrderPlaced':
             await ws.send_message(payload={'@type': 'CancelOrder', 'order_id': payload['order_id']})
 
@@ -50,7 +50,7 @@ async def main():
                 ws_addr=SERVER,
                 writer=writer,
                 read_callback=read_callback,
-                last_seen_order=0
+                last_seen_message_id=0
             )
         except exceptions.ServerRestart:
             asyncio.sleep(60)
