@@ -69,10 +69,6 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
         self.sequence_id = last_seen_sequence
         return last_seen_sequence, server_version, state
 
-    async def send_signed(self, *args, **kwargs) -> None:
-        warnings.warn("The 'send_signed' method is deprecated, use 'send_signed_message' instead", DeprecationWarning)
-        return await self.send_message(*args, **kwargs)
-
     async def send_message(self, *, payload: dict) -> None:
         if self.closed:
             logger.warning('the socket is closed')

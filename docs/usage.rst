@@ -10,7 +10,7 @@ Usage
     from cryptology import ClientWriterStub, run_client
 
     async def main() -> None:
-        async def writer(ws: ClientWriterStub) -> None:
+        async def writer(ws: ClientWriterStub, state: Dict = None) -> None:
             client_order_id = 0
             while True:
                 await asyncio.sleep(1)
@@ -26,8 +26,8 @@ Usage
                             }
                 )
 
-        async def read_callback(ts: datetime, payload: dict) -> None:
-            print(order, ts, payload)
+        async def read_callback(ts: datetime, message_id: int, payload: dict) -> None:
+            print(order, ts, message_id, payload)
 
         await run_client(
             access_key='YOUR ACCESS KEY',
@@ -35,5 +35,5 @@ Usage
             ws_addr='wss://api.sandbox.cryptology.com',
             writer=writer,
             read_callback=read_callback,
-            last_seen_order=-1
+            last_seen_message_id=-1
         )
