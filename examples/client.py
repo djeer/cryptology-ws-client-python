@@ -6,7 +6,7 @@ from collections import namedtuple
 from cryptology import ClientWriterStub, run_client, exceptions
 from datetime import datetime
 from decimal import Decimal
-from typing import Iterable
+from typing import Iterable, Dict
 
 SERVER = os.getenv('SERVER', 'ws://127.0.0.1:8080')
 Order = namedtuple('Order', ('order_id', 'amount', 'price', 'client_order_id'))
@@ -25,7 +25,7 @@ def iter_orders(payload: dict) -> Iterable[Order]:
 
 async def main():
 
-    async def writer(ws: ClientWriterStub) -> None:
+    async def writer(ws: ClientWriterStub, state: Dict) -> None:
         client_order_id = 0
         while True:
             await ws.send_message(payload={

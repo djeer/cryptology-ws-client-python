@@ -1,5 +1,5 @@
 ========================================
-Welcome to cryptology-client-python v1.0
+Welcome to cryptology-ws-client-python v1.0
 ========================================
 
 This is an official Python client library for the Cryptology exchange WebSocket API.
@@ -34,7 +34,7 @@ And see example.
     from collections import namedtuple
     from datetime import datetime
     from decimal import Decimal
-    from typing import Iterable
+    from typing import Iterable, Dict
     import asyncio
     import itertools
     import os
@@ -59,7 +59,7 @@ And see example.
 
     async def main():
 
-        async def writer(ws: ClientWriterStub) -> None:
+        async def writer(ws: ClientWriterStub, state: Dict) -> None:
             client_order_id = 0
             while True:
                 await ws.send_message(payload={
@@ -72,7 +72,7 @@ And see example.
                 })
                 await asyncio.sleep(1)
 
-        async def read_callback(ws: ClientWriterStub, ts: datetime, payload: dict) -> None:
+        async def read_callback(ws: ClientWriterStub, ts: datetime, message_id: int, payload: dict) -> None:
             if payload['@type'] == 'BuyOrderPlaced':
                 await ws.send_message(payload={'@type': 'CancelOrder', 'order_id': payload['order_id']})
 
@@ -84,7 +84,7 @@ And see example.
                     ws_addr=SERVER,
                     writer=writer,
                     read_callback=read_callback,
-                    last_seen_order=0
+                    last_seen_message_id=-1
                 )
             except exceptions.ServerRestart:
                 asyncio.sleep(60)
