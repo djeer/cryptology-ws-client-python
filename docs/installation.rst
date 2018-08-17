@@ -4,4 +4,4 @@ Installation
 
 .. code-block:: bash
 
-    pip install cryptology-ws-client-python
+    pip install git+https://github.com/CryptologyExchange/cryptology-ws-client-python.git

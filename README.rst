@@ -19,7 +19,7 @@ Receive your own API access key and secret key.
 
 .. code:: bash
 
-    pip install cryptology-ws-client-python
+    pip install git+https://github.com/CryptologyExchange/cryptology-ws-client-python.git
 
 Run tests.
 
