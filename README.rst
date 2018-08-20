@@ -96,4 +96,4 @@ And see example.
 
 
 
-For more `check out the documentation <https://client-python.docs.cryptology.com/>`_.
+For more `check out the documentation <https://github.com/CryptologyExchange/api>`_.
