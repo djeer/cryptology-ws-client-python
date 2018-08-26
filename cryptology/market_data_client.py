@@ -71,7 +71,7 @@ async def reader_loop(
 async def run(*, ws_addr: str, market_data_callback: MarketDataCallback = None,
               order_book_callback: OrderBookCallback = None,
               trades_callback: TradesCallback = None,
-              loop: Optional[asyncio.AbstractEventLoop] = Awaitable[None]) -> None:
+              loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
     async with aiohttp.ClientSession(loop=loop) as session:
         async with session.ws_connect(ws_addr, receive_timeout=20, heartbeat=3) as ws:
             await reader_loop(ws, market_data_callback, order_book_callback, trades_callback)
