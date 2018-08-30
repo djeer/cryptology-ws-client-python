@@ -1,6 +1,5 @@
 import aiohttp
 from cryptology.common import CLOSE_MESSAGES
-from datetime import datetime
 
 
 class CryptologyError(Exception):
@@ -19,7 +18,7 @@ class IncompatibleVersion(CryptologyProtocolError):
     pass
 
 
-class ClientNotFound(CryptologyProtocolError):
+class InvalidServerAddress(CryptologyProtocolError):
     pass
 
 
@@ -28,14 +27,6 @@ class InvalidKey(CryptologyProtocolError):
 
 
 class InvalidSequence(CryptologyProtocolError):
-    pass
-
-
-class DuplicateClientOrderId(CryptologyProtocolError):
-    pass
-
-
-class InvalidPayload(CryptologyProtocolError):
     pass
 
 
@@ -66,17 +57,6 @@ class ConcurrentConnection(CryptologyConnectionError):
 
 class ServerRestart(CryptologyConnectionError):
     pass
-
-
-class HeartbeatError(CryptologyConnectionError):
-    last_seen: datetime
-    now: datetime
-
-    def __init__(self, last_seen: datetime, now: datetime) -> None:
-        super(HeartbeatError, self).__init__(f'client didn\'t receive heartbeat message in time'
-                                             f', last seen {last_seen} now {now}')
-        self.last_seen = last_seen
-        self.now = now
 
 
 class RateLimit(CryptologyConnectionError):
