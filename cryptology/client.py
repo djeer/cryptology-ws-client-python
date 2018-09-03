@@ -31,6 +31,7 @@ class ClientWriterStub:
 ClientReadCallback = Callable[[ClientWriterStub, datetime, int, dict], Awaitable[None]]
 ClientWriter = Callable[[ClientWriterStub, List[str], Optional[Dict]], Awaitable[None]]
 ClientThrottlingCallback = Callable[[int, int], Awaitable[bool]]
+ErrorCallback = Callable[[ClientWriterStub, common.ServerErrorType, str], Awaitable[None]]
 
 
 class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
@@ -93,7 +94,8 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
         logger.debug('sending message with seq id %i: %s', sequence_id, payload)
         self.send_fut = asyncio.ensure_future(self.send_json(data))
 
-    async def receive_iter(self, throttling_callback: ClientThrottlingCallback
+    async def receive_iter(self, throttling_callback: ClientThrottlingCallback,
+                           error_callback: ErrorCallback
                            ) -> AsyncIterator[Tuple[datetime, dict]]:
         while True:
             data = await receive_msg(self)
@@ -112,17 +114,9 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
             elif message_type is common.ServerMessageType.ERROR:
                 error_type = common.ServerErrorType[data['error_type']]
                 message = data['error_message']
-                if message == 'TimeoutError()':
-                    logger.error('heartbeat error received')
-                    raise exceptions.HeartbeatError(datetime.utcnow(), datetime.utcnow())
                 logger.error('error received: %s', message)
 
-                if error_type == common.ServerErrorType.UNKNOWN_ERROR:
-                    raise exceptions.CryptologyError(message)
-                elif error_type == common.ServerErrorType.INVALID_PAYLOAD:
-                    raise exceptions.InvalidPayload(message)
-                elif error_type == common.ServerErrorType.DUPLICATE_CLIENT_ORDER_ID:
-                    raise exceptions.DuplicateClientOrderId()
+                asyncio.ensure_future(error_callback(self, error_type, message))
             else:
                 logger.error('unsupported message type')
                 raise exceptions.UnsupportedMessageType()
@@ -147,7 +141,8 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
                      last_seen_message_id: int = 0,
                      loop: Optional[asyncio.AbstractEventLoop] = None,
                      get_balances: bool = False,
-                     get_order_books: bool = False) -> None:
+                     get_order_books: bool = False,
+                     error_callback: ErrorCallback = None) -> None:
     async with CryptologyClientSession(access_key, secret_key, loop=loop) as session:
         async with session.ws_connect(ws_addr, autoclose=True, autoping=True, receive_timeout=10, heartbeat=4) as ws:
             logger.info('connected to the server %s', ws_addr)
@@ -155,10 +150,11 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
                                                                               get_balances,
                                                                               get_order_books)
             logger.info('Authentication succeeded, server version %i, sequence id = %i', server_version, sequence_id)
-            assert server_version >= 6, 'Server version less than 6 is not supported'
+            if server_version < 6:
+                raise exceptions.IncompatibleVersion('Server version less than 6 is not supported')
 
             async def reader_loop() -> None:
-                async for ts, message_id, msg in ws.receive_iter(throttling_callback):
+                async for ts, message_id, msg in ws.receive_iter(throttling_callback, error_callback):
                     logger.debug('%s new msg from server @%i: %s', ts, message_id, msg)
                     asyncio.ensure_future(read_callback(ws, ts, message_id, msg))
 
