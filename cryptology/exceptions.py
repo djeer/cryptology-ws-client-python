@@ -11,6 +11,10 @@ class CryptologyProtocolError(CryptologyError):
     pass
 
 
+class InvalidServerAddress(CryptologyProtocolError):
+    pass
+
+
 class IncompatibleVersion(CryptologyProtocolError):
     pass
 
@@ -92,4 +96,4 @@ def handle_close_message(msg: aiohttp.WSMessage) -> None:
                 raise ServerRestart()
             elif msg.data == 3100:
                 raise InvalidKey()
-        raise Disconnected(msg.data)
+        raise Disconnected(msg.extra)

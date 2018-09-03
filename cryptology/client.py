@@ -9,7 +9,7 @@ import warnings
 import xdrlib
 
 from datetime import datetime
-from typing import Any, AsyncIterator, Awaitable, Callable, ClassVar, Optional, Tuple, Type, cast, Dict
+from typing import Any, AsyncIterator, Awaitable, Callable, ClassVar, Optional, Tuple, Type, cast, Dict, List
 
 from . import common, exceptions, parallel
 from .market_data_client import receive_msg
@@ -29,12 +29,12 @@ class ClientWriterStub:
 
 
 ClientReadCallback = Callable[[ClientWriterStub, datetime, int, dict], Awaitable[None]]
-ClientWriter = Callable[[ClientWriterStub, Optional[Dict]], Awaitable[None]]
+ClientWriter = Callable[[ClientWriterStub, List[str], Optional[Dict]], Awaitable[None]]
 ClientThrottlingCallback = Callable[[int, int], Awaitable[bool]]
 
 
 class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
-    VERSION: ClassVar[int] = 6
+    VERSION: ClassVar[int] = 7
 
     access_key: ClassVar[str]
     secret_key: ClassVar[str]
@@ -50,7 +50,7 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
         self.throttle = 0
 
     async def authenticate(self, last_seen_message_id: int, get_balances: bool = False,
-                           get_order_books: bool = False) -> Tuple[int, int, Dict]:
+                           get_order_books: bool = False) -> Tuple[int, int, Dict, List[str]]:
         state_request_data = {}
         if get_balances:
             state_request_data['get_balances'] = get_balances
@@ -63,11 +63,17 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
                               'version': self.VERSION,
                               **state_request_data})
         data = await receive_msg(self)
-        last_seen_sequence = data['last_seen_sequence']
-        server_version = data['version']
-        state = data.get('state')
+        try:
+            if data['greeting'] != 'Welcome to Cryptology API Server':
+                raise exceptions.InvalidServerAddress()
+            last_seen_sequence = data['last_seen_sequence']
+            server_version = data['version']
+            state = data.get('state')
+            pairs = data['trade_pairs']
+        except (KeyError, TypeError):
+            raise exceptions.InvalidServerAddress()
         self.sequence_id = last_seen_sequence
-        return last_seen_sequence, server_version, state
+        return last_seen_sequence, server_version, state, pairs
 
     async def send_message(self, *, payload: dict) -> None:
         if self.closed:
@@ -145,9 +151,9 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
     async with CryptologyClientSession(access_key, secret_key, loop=loop) as session:
         async with session.ws_connect(ws_addr, autoclose=True, autoping=True, receive_timeout=10, heartbeat=4) as ws:
             logger.info('connected to the server %s', ws_addr)
-            sequence_id, server_version, state = await ws.authenticate(last_seen_message_id,
-                                                                       get_balances,
-                                                                       get_order_books)
+            sequence_id, server_version, state, pairs = await ws.authenticate(last_seen_message_id,
+                                                                              get_balances,
+                                                                              get_order_books)
             logger.info('Authentication succeeded, server version %i, sequence id = %i', server_version, sequence_id)
             assert server_version >= 6, 'Server version less than 6 is not supported'
 
@@ -158,5 +164,5 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
 
             await parallel.run_parallel((
                 reader_loop(),
-                writer(ws, state)
+                writer(ws, pairs, state)
             ), loop=loop)

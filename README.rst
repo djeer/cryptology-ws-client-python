@@ -1,5 +1,5 @@
 ========================================
-Welcome to cryptology-ws-client-python v1.0
+Welcome to cryptology-ws-client-python v1.0.1
 ========================================
 
 This is an official Python client library for the Cryptology exchange WebSocket API.
@@ -31,37 +31,29 @@ And see example.
 
 .. code:: python
 
-    from collections import namedtuple
-    from datetime import datetime
-    from decimal import Decimal
-    from typing import Iterable, Dict
     import asyncio
     import itertools
     import os
+    import logging
+    import time
 
+    from collections import namedtuple
     from cryptology import ClientWriterStub, run_client, exceptions
+    from datetime import datetime
+    from decimal import Decimal
+    from typing import Iterable, Dict, List
+
+    SERVER = os.getenv('SERVER', 'wss://api.sandbox.cryptology.com')
 
 
-    SERVER = os.getenv('SERVER', 'wss://api.cryptology.com')
-    Order = namedtuple('Order', ('order_id', 'amount', 'price', 'client_order_id'))
-
-
-    def iter_orders(payload: dict) -> Iterable[Order]:
-        for book in payload['order_books'].values():
-            for order in itertools.chain(book['buy'], book['sell']):
-                yield Order(
-                    order_id=order['order_id'],
-                    amount=Decimal(order['amount']),
-                    price=Decimal(order['price']),
-                    client_order_id=order['client_order_id']
-                )
+    logging.basicConfig(level='DEBUG')
 
 
     async def main():
 
-        async def writer(ws: ClientWriterStub, state: Dict) -> None:
-            client_order_id = 0
+        async def writer(ws: ClientWriterStub, pairs: List, state: Dict) -> None:
             while True:
+                client_order_id = int(time.time() * 10)
                 await ws.send_message(payload={
                     '@type': 'PlaceBuyLimitOrder',
                     'trade_pair': 'BTC_USD',
@@ -70,7 +62,7 @@ And see example.
                     'client_order_id': client_order_id,
                     'ttl': 0
                 })
-                await asyncio.sleep(1)
+                await asyncio.sleep(5)
 
         async def read_callback(ws: ClientWriterStub, ts: datetime, message_id: int, payload: dict) -> None:
             if payload['@type'] == 'BuyOrderPlaced':
@@ -93,6 +85,7 @@ And see example.
     if __name__ == '__main__':
         loop = asyncio.get_event_loop()
         loop.run_until_complete(main())
+
 
 
 
