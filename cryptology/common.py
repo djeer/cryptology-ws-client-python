@@ -37,3 +37,4 @@ class ServerErrorType(ByValue):
     UNKNOWN_ERROR = -1
     DUPLICATE_CLIENT_ORDER_ID = 1
     INVALID_PAYLOAD = 2
+    PERMISSION_DENIED = 3
