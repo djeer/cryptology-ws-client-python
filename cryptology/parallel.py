@@ -20,6 +20,8 @@ async def run_parallel(coros: Iterable[Awaitable[None]],
 
     def cancel_others(target: asyncio.Task) -> None:
         for other in tasks:
+            other.remove_done_callback(cancel_others)
+        for other in tasks:
             if other is not target:
                 other.cancel()
 

@@ -1,18 +1,14 @@
-import json
-
 import aiohttp
 import asyncio
 import functools
 import inspect
 import logging
-import warnings
-import xdrlib
 
 from datetime import datetime
 from typing import Any, AsyncIterator, Awaitable, Callable, ClassVar, Optional, Tuple, Type, cast, Dict, List
 
 from . import common, exceptions, parallel
-from .market_data_client import receive_msg
+
 
 __all__ = ('ClientReadCallback', 'ClientWriter', 'ClientWriterStub', 'run_client',)
 
@@ -31,7 +27,6 @@ class ClientWriterStub:
 ClientReadCallback = Callable[[ClientWriterStub, datetime, int, dict], Awaitable[None]]
 ClientWriter = Callable[[ClientWriterStub, List[str], Optional[Dict]], Awaitable[None]]
 ClientThrottlingCallback = Callable[[int, int], Awaitable[bool]]
-ErrorCallback = Callable[[ClientWriterStub, common.ServerErrorType, str], Awaitable[None]]
 
 
 class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
@@ -63,7 +58,7 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
                               'last_seen_message_id': last_seen_message_id,
                               'version': self.VERSION,
                               **state_request_data})
-        data = await receive_msg(self)
+        data = await common.receive_msg(self)
         try:
             if data['greeting'] != 'Welcome to Cryptology API Server':
                 raise exceptions.InvalidServerAddress()
@@ -94,11 +89,9 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
         logger.debug('sending message with seq id %i: %s', sequence_id, payload)
         self.send_fut = asyncio.ensure_future(self.send_json(data))
 
-    async def receive_iter(self, throttling_callback: ClientThrottlingCallback,
-                           error_callback: ErrorCallback
-                           ) -> AsyncIterator[Tuple[datetime, dict]]:
+    async def receive_iter(self, throttling_callback: ClientThrottlingCallback) -> AsyncIterator[Tuple[datetime, dict]]:
         while True:
-            data = await receive_msg(self)
+            data = await common.receive_msg(self)
 
             message_type: common.ServerMessageType = common.ServerMessageType[data['response_type']]
             logger.debug('message %s received', message_type)
@@ -111,12 +104,6 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
                 ts = data['timestamp']
                 logger.debug('outbox message: %s', data['data'])
                 yield datetime.utcfromtimestamp(ts), data['message_id'], data['data']
-            elif message_type is common.ServerMessageType.ERROR:
-                error_type = common.ServerErrorType[data['error_type']]
-                message = data['error_message']
-                logger.error('error received: %s', message)
-
-                asyncio.ensure_future(error_callback(self, error_type, message))
             else:
                 logger.error('unsupported message type')
                 raise exceptions.UnsupportedMessageType()
@@ -142,7 +129,9 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
                      loop: Optional[asyncio.AbstractEventLoop] = None,
                      get_balances: bool = False,
                      get_order_books: bool = False,
-                     error_callback: ErrorCallback = None) -> None:
+                     error_callback: Any = None) -> None:
+    if error_callback:
+        logger.warning('error_callback is deprecated')
     async with CryptologyClientSession(access_key, secret_key, loop=loop) as session:
         async with session.ws_connect(ws_addr, autoclose=True, autoping=True, receive_timeout=10, heartbeat=4) as ws:
             logger.info('connected to the server %s', ws_addr)
@@ -154,7 +143,7 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
                 raise exceptions.IncompatibleVersion('Server version less than 6 is not supported')
 
             async def reader_loop() -> None:
-                async for ts, message_id, msg in ws.receive_iter(throttling_callback, error_callback):
+                async for ts, message_id, msg in ws.receive_iter(throttling_callback):
                     logger.debug('%s new msg from server @%i: %s', ts, message_id, msg)
                     asyncio.ensure_future(read_callback(ws, ts, message_id, msg))
 

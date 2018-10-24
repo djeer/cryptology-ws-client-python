@@ -1,26 +1,20 @@
 import aiohttp
 import asyncio
-import json
 import logging
+from typing import Optional, Callable, Awaitable, List
+import urllib
+from urllib.parse import urlencode
+from multidict import MultiDict
+
 
 from . import exceptions, common
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Callable, Awaitable
 
-__all__ = ('run', 'receive_msg')
+__all__ = ('run')
+
 
 logger = logging.getLogger(__name__)
-
-
-async def receive_msg(ws: aiohttp.ClientWebSocketResponse, *, timeout: Optional[float] = None) -> dict:
-    msg = await ws.receive(timeout=timeout)
-    if msg.type in common.CLOSE_MESSAGES:
-        logger.info('close msg received (type %s): %s', msg.type.name, msg.data)
-        exceptions.handle_close_message(msg)
-        raise exceptions.UnsupportedMessage(msg)
-
-    return json.loads(msg.data)
 
 
 MarketDataCallback = Callable[[dict], Awaitable[None]]
@@ -35,7 +29,7 @@ async def reader_loop(
         trades_callback: TradesCallback) -> None:
     logger.info(f'broadcast connection established')
     while True:
-        msg = await receive_msg(ws)
+        msg = await common.receive_msg(ws)
 
         try:
             message_type: common.ServerMessageType = common.ServerMessageType[msg['response_type']]
@@ -71,7 +65,14 @@ async def reader_loop(
 async def run(*, ws_addr: str, market_data_callback: MarketDataCallback = None,
               order_book_callback: OrderBookCallback = None,
               trades_callback: TradesCallback = None,
+              trade_pairs: List[str] = None,
               loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+    url = ws_addr
+    if trade_pairs:
+        params = MultiDict()
+        for trade_pair in trade_pairs:
+            params.add('trade_pair', trade_pair)
+        url = '{}?{}'.format(url, urlencode(params))
     async with aiohttp.ClientSession(loop=loop) as session:
-        async with session.ws_connect(ws_addr, receive_timeout=20, heartbeat=3) as ws:
+        async with session.ws_connect(url, receive_timeout=20, heartbeat=3) as ws:
             await reader_loop(ws, market_data_callback, order_book_callback, trades_callback)

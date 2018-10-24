@@ -18,10 +18,6 @@ class IncompatibleVersion(CryptologyProtocolError):
     pass
 
 
-class InvalidServerAddress(CryptologyProtocolError):
-    pass
-
-
 class InvalidKey(CryptologyProtocolError):
     pass
 
@@ -47,8 +43,11 @@ class CryptologyConnectionError(CryptologyError):
 
 
 class Disconnected(CryptologyConnectionError):
-    def __init__(self, code: int) -> None:
-        super().__init__(f'disconnected with code {code}')
+    def __init__(self, code: int, message: str) -> None:
+        if message:
+            super().__init__(f'disconnected with code {code} and message "{message}"')
+        else:
+            super().__init__(f'disconnected with code {code}')
 
 
 class ConcurrentConnection(CryptologyConnectionError):
@@ -59,7 +58,19 @@ class ServerRestart(CryptologyConnectionError):
     pass
 
 
-class RateLimit(CryptologyConnectionError):
+class RateLimit(CryptologyError):
+    pass
+
+
+class InvalidPayloadError(CryptologyProtocolError):
+    pass
+
+
+class PermissionDeniedError(CryptologyError):
+    pass
+
+
+class DuplicateClientOrderIdError(CryptologyProtocolError):
     pass
 
 
@@ -74,6 +85,16 @@ def handle_close_message(msg: aiohttp.WSMessage) -> None:
                 raise RateLimit()
             elif msg.data == 1012:
                 raise ServerRestart()
-            elif msg.data == 3100:
+            elif msg.data == 4100:
                 raise InvalidKey()
-        raise Disconnected(msg.extra)
+            elif msg.data == 4102:
+                raise PermissionDeniedError(msg.extra)
+            elif msg.data == 4103:
+                raise IncompatibleVersion(msg.extra)
+            elif msg.data == 4010:
+                raise InvalidPayloadError(msg.extra)
+            elif msg.data == 4013:
+                raise PermissionDeniedError(msg.extra)
+            elif msg.data == 4014:
+                raise DuplicateClientOrderIdError(msg.extra)
+        raise Disconnected(msg.data, msg.extra)

@@ -1,5 +1,5 @@
 ========================================
-Welcome to cryptology-ws-client-python v1.0.1
+Welcome to cryptology-ws-client-python v1.1.0
 ========================================
 
 This is an official Python client library for the Cryptology exchange WebSocket API.
