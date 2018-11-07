@@ -1,5 +1,5 @@
 import aiohttp
-from cryptology.common import CLOSE_MESSAGES
+from cryptology import common
 
 
 class CryptologyError(Exception):
@@ -75,7 +75,7 @@ class DuplicateClientOrderIdError(CryptologyProtocolError):
 
 
 def handle_close_message(msg: aiohttp.WSMessage) -> None:
-    if msg.type in CLOSE_MESSAGES:
+    if msg.type in common.CLOSE_MESSAGES:
         if msg.type == aiohttp.WSMsgType.CLOSE:
             if msg.data == 4000:
                 raise ConcurrentConnection()
