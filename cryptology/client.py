@@ -108,6 +108,10 @@ class BaseProtocolClient(aiohttp.ClientWebSocketResponse):
                 logger.error('unsupported message type')
                 raise exceptions.UnsupportedMessageType()
 
+    def _pong_not_received(self):
+        logger.warning('missed heartbeat from the server. connection will be closed')
+        super()._pong_not_received()
+
 
 @functools.lru_cache(typed=True)
 def bind_response_class(access_key: str, secret_key: str) -> Type[BaseProtocolClient]:
@@ -119,7 +123,7 @@ def bind_response_class(access_key: str, secret_key: str) -> Type[BaseProtocolCl
 class CryptologyClientSession(aiohttp.ClientSession):
     def __init__(self, access_key: str, secret_key: str, *,
                  loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
-        super().__init__(ws_response_class=bind_response_class(access_key, secret_key), loop=loop)
+        super().__init__(ws_response_class=bind_response_class(access_key, secret_key), loop=loop, conn_timeout=10)
 
 
 async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
