@@ -1,6 +1,6 @@
-========================================
-Welcome to cryptology-ws-client-python v1.1.0
-========================================
+=============================================
+Welcome to cryptology-ws-client-python v1.1.5
+=============================================
 
 This is an official Python client library for the Cryptology exchange WebSocket API.
 
@@ -19,7 +19,7 @@ Receive your own API access key and secret key.
 
 .. code:: bash
 
-    pip install git+https://github.com/CryptologyExchange/cryptology-ws-client-python.git
+    pip install cryptology-ws-client
 
 Run tests.
 
