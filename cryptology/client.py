@@ -137,7 +137,7 @@ async def run_client(*, access_key: str, secret_key: str, ws_addr: str,
     if error_callback:
         logger.warning('error_callback is deprecated')
     async with CryptologyClientSession(access_key, secret_key, loop=loop) as session:
-        async with session.ws_connect(ws_addr, autoclose=True, autoping=True, receive_timeout=10, heartbeat=4) as ws:
+        async with session.ws_connect(ws_addr, autoclose=True, autoping=True, receive_timeout=10, heartbeat=10) as ws:
             logger.info('connected to the server %s', ws_addr)
             sequence_id, server_version, state, pairs = await ws.authenticate(last_seen_message_id,
                                                                               get_balances,
