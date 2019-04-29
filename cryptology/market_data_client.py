@@ -74,5 +74,5 @@ async def run(*, ws_addr: str, market_data_callback: MarketDataCallback = None,
             params.add('trade_pair', trade_pair)
         url = '{}?{}'.format(url, urlencode(params))
     async with aiohttp.ClientSession(loop=loop) as session:
-        async with session.ws_connect(url, receive_timeout=20, heartbeat=3) as ws:
+        async with session.ws_connect(url, receive_timeout=20, heartbeat=8) as ws:
             await reader_loop(ws, market_data_callback, order_book_callback, trades_callback)
