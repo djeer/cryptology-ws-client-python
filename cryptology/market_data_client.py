@@ -11,7 +11,7 @@ from . import exceptions, common
 from datetime import datetime
 from decimal import Decimal
 
-__all__ = ('run')
+__all__ = ('run',)
 
 
 logger = logging.getLogger(__name__)
