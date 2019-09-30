@@ -1,5 +1,5 @@
 import aiohttp
-from cryptology import common
+from . import common
 
 
 class CryptologyError(Exception):
