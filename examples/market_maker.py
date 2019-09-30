@@ -112,7 +112,7 @@ async def main():
             get_balances=True
         )
     except exceptions.ServerRestart:
-        asyncio.sleep(60)
+        await asyncio.sleep(60)
 
 
 if __name__ == '__main__':

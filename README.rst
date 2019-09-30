@@ -79,7 +79,7 @@ And see example.
                     last_seen_message_id=-1
                 )
             except exceptions.ServerRestart:
-                asyncio.sleep(60)
+                await asyncio.sleep(60)
 
 
     if __name__ == '__main__':
